@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meal Planner Calendar</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            background: linear-gradient(to right, #ff7e5f, #feb47b);
+            padding: 20px;
+            width: 100%;
+            color: white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            margin: 0;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        select, input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button:hover {
+            background: #45a049;
+        }
+        #calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .day {
+            padding: 15px;
+            text-align: center;
+            border: 1px solid #ddd;
+            cursor: pointer;
+            background: #fff;
+            transition: background 0.3s;
+        }
+        .day:hover {
+            background: #f0f0f0;
+        }
+        .day.selected {
+            background: #ffeb3b;
+        }
+        .day.highlighted {
+            background: #add8e6;
+        }
+        .weekday {
+            font-weight: bold;
+            background: #eee;
+        }
+        #menu-display {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+        .meal {
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+        .meal h3 {
+            color: #ff5722;
+        }
+        .recipe-details {
+            display: none;
+            background: #fafafa;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .toggle-btn {
+            cursor: pointer;
+            color: #2196F3;
+        }
+        img.food-img {
+            width: 100%;
+            max-height: 200px;
+            object-fit: cover;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        @media print {
+            .controls, button:not(#print-btn) {
+                display: none;
+            }
+            #calendar {
+                display: none;
+            }
+            #menu-display {
+                box-shadow: none;
+                page-break-inside: avoid;
+            }
+        }
+        @media (max-width: 600px) {
+            #calendar {
+                grid-template-columns: repeat(7, 1fr);
+                font-size: 12px;
+            }
+            .controls {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Meal Planner Calendar</h1>
+    </header>
+    <div class="controls">
+        <select id="country-select">
+            <option value="pakistan">Pakistan</option>
+        </select>
+        <select id="budget-select">
+            <option value="low">Low Budget</option>
+            <option value="medium">Medium Budget</option>
+            <option value="high">High Budget</option>
+        </select>
+        <select id="month-select"></select>
+        <select id="year-select"></select>
+        <input type="text" id="search-input" placeholder="Search recipes...">
+        <button id="print-btn">Print Menu</button>
+    </div>
+    <div id="calendar"></div>
+    <div id="menu-display"></div>
+
+    <script>
+        // Hardcoded recipe data for Pakistan, structured by season for extension to other countries
+        // Recipes selected based on seasonal availability, health benefits, and budget (price considerations: low uses cheap staples like dals/veggies, medium chicken/yogurt, high meat/nuts)
+        // Can be extended by adding more countries or seasons in JSON format
+        const recipes = {
+            breakfast: {
+                low: {
+                    winter: [
+                        {
+                            name: "Sweet Dalia",
+                            ingredients: "½ cup cracked wheat, milk, sugar, nuts, cardamom",
+                            method: "1. Rinse cracked wheat. 2. Boil in milk with sugar and cardamom until soft. 3. Garnish with nuts.",
+                            benefits: "High in fiber and complex carbs, provides sustained energy, rich in iron. Good for cold weather warmth."
+                        },
+                        {
+                            name: "Egg Bhurji",
+                            ingredients: "2 eggs (beaten), salt, pepper, chopped onions, tomatoes, green chilies",
+                            method: "1. Beat 2 eggs with salt and pepper. 2. Sauté chopped onions, tomatoes, and green chilies. 3. Pour in the eggs and cook until soft and scrambled.",
+                            benefits: "14g protein per serving. Quick, high-protein breakfast with added spices for flavor and digestion."
+                        },
+                        {
+                            name: "Masoor Dal Pancakes",
+                            ingredients: "1 cup masoor dal (soaked), water, salt, cumin (and other spices)",
+                            method: "1. Soak masoor dal for two hours. 2. Blend with water, salt, and spices like cumin to make a batter. 3. Pour small quantities on a hot pan and cook until golden brown on both sides.",
+                            benefits: "13g protein per pancake. Rich in protein, easily digestible, and light yet filling for winter energy."
+                        },
+                        {
+                            name: "Aloo Paratha", // Added seasonal
+                            ingredients: "Potatoes, whole wheat flour, spices, ghee",
+                            method: "1. Mash boiled potatoes with spices. 2. Stuff into dough balls and roll flat. 3. Cook on tawa with ghee.",
+                            benefits: "Carb-rich for energy, vitamins from potatoes, warming for winter."
+                        }
+                    ],
+                    spring: [
+                        {
+                            name: "Moong Dal Chilla",
+                            ingredients: "1 cup moong dal (soaked overnight), water, salt, spices",
+                            method: "1. Soak moong dal overnight. 2. Blend into a thick batter with water, salt, and spices. 3. Pour onto a hot pan, cook until golden brown on both sides, and fold.",
+                            benefits: "12g protein per chilla. High in proteins, low in calories, and light for spring freshness."
+                        },
+                        {
+                            name: "Chana Chaat",
+                            ingredients: "1 cup chickpeas (boiled), 1 tomato (chopped), 1 small onion (chopped), 1 green chili (chopped), salt, black pepper, chaat masala, fresh coriander",
+                            method: "1. Boil chickpeas until tender. 2. Chop tomato, onion, and green chili. 3. Mix everything well, season with salt, black pepper, and chaat masala. 4. Garnish with fresh coriander.",
+                            benefits: "Approximately 15g protein per serving. Rich in fibers, vitamins, and proteins, refreshing for spring."
+                        },
+                        {
+                            name: "Egg Bhurji",
+                            ingredients: "2 eggs (beaten), salt, pepper, chopped onions, tomatoes, green chilies",
+                            method: "1. Beat 2 eggs with salt and pepper. 2. Sauté chopped onions, tomatoes, and green chilies. 3. Pour in the eggs and cook until soft and scrambled.",
+                            benefits: "14g protein per serving. Quick, high-protein with veggies for spring health."
+                        }
+                    ],
+                    summer: [
+                        {
+                            name: "Chana Chaat",
+                            ingredients: "1 cup chickpeas (boiled), 1 tomato (chopped), 1 small onion (chopped), 1 green chili (chopped), salt, black pepper, chaat masala, fresh coriander",
+                            method: "1. Boil chickpeas until tender. 2. Chop tomato, onion, and green chili. 3. Mix everything well, season with salt, black pepper, and chaat masala. 4. Garnish with fresh coriander.",
+                            benefits: "15g protein. Hydrating and light, rich in fiber for summer digestion."
+                        },
+                        {
+                            name: "Moong Dal Chilla",
+                            ingredients: "1 cup moong dal (soaked overnight), water, salt, spices",
+                            method: "1. Soak moong dal overnight. 2. Blend into a thick batter with water, salt, and spices. 3. Pour onto a hot pan, cook until golden brown on both sides, and fold.",
+                            benefits: "12g protein. Low calorie, cooling for hot weather."
+                        },
+                        {
+                            name: "Fruit Chaat", // Added seasonal
+                            ingredients: "Mixed seasonal fruits (watermelon, apple, cucumber), chaat masala, lemon",
+                            method: "1. Chop fruits. 2. Mix with chaat masala and lemon juice.",
+                            benefits: "High water content, vitamins, hydrating for summer heat."
+                        }
+                    ],
+                    autumn: [
+                        {
+                            name: "Masoor Dal Pancakes",
+                            ingredients: "1 cup masoor dal (soaked), water, salt, cumin (and other spices)",
+                            method: "1. Soak masoor dal for two hours. 2. Blend with water, salt, and spices like cumin to make a batter. 3. Pour small quantities on a hot pan and cook until golden brown on both sides.",
+                            benefits: "13g protein. Nutritious transition meal with fiber."
+                        },
+                        {
+                            name: "Sweet Dalia",
+                            ingredients: "½ cup cracked wheat, milk, sugar, nuts, cardamom",
+                            method: "1. Rinse cracked wheat. 2. Boil in milk with sugar and cardamom until soft. 3. Garnish with nuts.",
+                            benefits: "Fiber-rich, sustained energy for cooler autumn."
+                        },
+                        {
+                            name: "Egg Bhurji",
+                            ingredients: "2 eggs (beaten), salt, pepper, chopped onions, tomatoes, green chilies",
+                            method: "1. Beat 2 eggs with salt and pepper. 2. Sauté chopped onions, tomatoes, and green chilies. 3. Pour in the eggs and cook until soft and scrambled.",
+                            benefits: "14g protein. Versatile and healthy."
+                        }
+                    ]
+                },
+                medium: {
+                    winter: [
+                        {
+                            name: "Sooji Halwa",
+                            ingredients: "125g salted butter, 165g coarse semolina, 400ml evaporated milk, 400ml water, 160g sugar, cardamom, saffron",
+                            method: "1. Melt butter, add semolina, sauté until golden. 2. Add milk, water, sugar, spices. 3. Cook until thick. 4. Garnish.",
+                            benefits: "Calories: 225, Protein: 4g, Carbs: 27g. Warming quick energy for winter."
+                        },
+                        {
+                            name: "Anda Paratha",
+                            ingredients: "Whole wheat flour (for flatbread), eggs (1-2, beaten), salt, white pepper",
+                            method: "1. Roll whole wheat flour into flatbread. 2. Beat 1-2 eggs with salt and white pepper. 3. Place the egg mix on top of the paratha and pan-fry until crispy and golden brown.",
+                            benefits: "12g protein. Provides warmth and energy."
+                        },
+                        {
+                            name: "Bakery Style Chicken Patties",
+                            ingredients: "Chicken, pastry dough, spices",
+                            method: "1. Prepare chicken filling. 2. Wrap in pastry. 3. Bake until golden.",
+                            benefits: "Rich in protein, comforting for cold days."
+                        }
+                    ],
+                    spring: [
+                        {
+                            name: "Dahi Bhalla",
+                            ingredients: "1 cup urad dal (soaked), yogurt (whisked), chaat masala, tamarind sauce",
+                            method: "1. Soak urad dal for 4-5 hours and make a paste. 2. Fry small spoonfuls as fritters. 3. Dunk in water, add to yogurt. 4. Sprinkle chaat masala and tamarind sauce.",
+                            benefits: "10g protein. Yogurt aids digestion in mild weather."
+                        },
+                        {
+                            name: "Greek Yogurt with Nuts",
+                            ingredients: "1 cup Greek yogurt, handful of almonds, walnuts, or pistachios, honey",
+                            method: "1. Mix Greek yogurt with nuts and honey.",
+                            benefits: "High in protein and healthy fats, fresh for spring."
+                        },
+                        {
+                            name: "Anda Paratha",
+                            ingredients: "Whole wheat flour (for flatbread), eggs (1-2, beaten), salt, white pepper",
+                            method: "1. Roll whole wheat flour into flatbread. 2. Beat 1-2 eggs with salt and white pepper. 3. Place the egg mix on top of the paratha and pan-fry until crispy and golden brown.",
+                            benefits: "12g protein. Balanced for season."
+                        }
+                    ],
+                    summer: [
+                        {
+                            name: "Dahi Bhalla",
+                            ingredients: "1 cup urad dal (soaked), yogurt (whisked), chaat masala, tamarind sauce",
+                            method: "1. Soak urad dal for 4-5 hours and make a paste. 2. Fry small spoonfuls as fritters. 3. Dunk in water, add to yogurt. 4. Sprinkle chaat masala and tamarind sauce.",
+                            benefits: "10g protein. Cooling yogurt base for heat."
+                        },
+                        {
+                            name: "Greek Yogurt with Nuts",
+                            ingredients: "1 cup Greek yogurt, handful of almonds, walnuts, or pistachios, honey",
+                            method: "1. Mix Greek yogurt with nuts and honey.",
+                            benefits: "Protein and fats, hydrating."
+                        },
+                        {
+                            name: "Pudina Chutney Paratha", // Added from research
+                            ingredients: "Wheat flour, mint chutney, spices",
+                            method: "1. Make dough, stuff with mint chutney. 2. Cook on tawa.",
+                            benefits: "Cooling mint for summer, digestive aid."
+                        }
+                    ],
+                    autumn: [
+                        {
+                            name: "Sooji Halwa",
+                            ingredients: "125g salted butter, 165g coarse semolina, 400ml evaporated milk, 400ml water, 160g sugar, cardamom, saffron",
+                            method: "1. Melt butter, add semolina, sauté until golden. 2. Add milk, water, sugar, spices. 3. Cook until thick. 4. Garnish.",
+                            benefits: "Quick energy for changing weather."
+                        },
+                        {
+                            name: "Bakery Style Chicken Patties",
+                            ingredients: "Chicken, pastry dough, spices",
+                            method: "1. Prepare chicken filling. 2. Wrap in pastry. 3. Bake until golden.",
+                            benefits: "Protein-rich."
+                        },
+                        {
+                            name: "Greek Yogurt with Nuts",
+                            ingredients: "1 cup Greek yogurt, handful of almonds, walnuts, or pistachios, honey",
+                            method: "1. Mix Greek yogurt with nuts and honey.",
+                            benefits: "Healthy fats for season."
+                        }
+                    ]
+                },
+                high: {
+                    winter: [
+                        {
+                            name: "Halwa Puri Chana",
+                            ingredients: "For Halwa: butter, semolina, milk, sugar. For Puri: flour, oil. For Chana: chickpeas, spices",
+                            method: "Prepare each component separately: cook halwa, fry puri, boil chana with spices.",
+                            benefits: "Balanced with protein and carbs, warming for winter."
+                        },
+                        {
+                            name: "Nihari",
+                            ingredients: "Beef/mutton, spices, flour for thickening, ginger, chilies",
+                            method: "1. Slow cook meat with spices. 2. Thicken with flour. 3. Garnish with ginger and chilies.",
+                            benefits: "High in protein and iron, bone health."
+                        },
+                        {
+                            name: "Keema Omelette",
+                            ingredients: "Half a cup ground chicken or beef, onions, spices, 2 eggs (beaten), salt, pepper",
+                            method: "1. Brown ground meat with onions and spices. 2. Mix with beaten eggs. 3. Cook until set.",
+                            benefits: "20g protein. High energy."
+                        }
+                    ],
+                    spring: [
+                        {
+                            name: "Chicken Tikka Club Sandwiches",
+                            ingredients: "Grilled bread, tikka chicken, veggies",
+                            method: "1. Grill bread. 2. Assemble with chicken and veggies.",
+                            benefits: "Protein-rich, fresh veggies."
+                        },
+                        {
+                            name: "Chicken Mayo Sandwiches",
+                            ingredients: "Chicken breast, mayo sauce, mix-ins",
+                            method: "1. Mix chicken with sauce. 2. Assemble sandwiches.",
+                            benefits: "Healthy fats and protein."
+                        },
+                        {
+                            name: "Keema Omelette",
+                            ingredients: "Half a cup ground chicken or beef, onions, spices, 2 eggs (beaten), salt, pepper",
+                            method: "1. Brown ground meat with onions and spices. 2. Mix with beaten eggs. 3. Cook until set.",
+                            benefits: "20g protein."
+                        }
+                    ],
+                    summer: [
+                        {
+                            name: "Chicken Tikka Club Sandwiches",
+                            ingredients: "Grilled bread, tikka chicken, veggies",
+                            method: "1. Grill bread. 2. Assemble with chicken and veggies.",
+                            benefits: "Light grilled, hydrating veggies."
+                        },
+                        {
+                            name: "Chicken Mayo Sandwiches",
+                            ingredients: "Chicken breast, mayo sauce, mix-ins",
+                            method: "1. Mix chicken with sauce. 2. Assemble sandwiches.",
+                            benefits: "Cool and quick."
+                        },
+                        {
+                            name: "Grilled Chicken with Mint", // Added
+                            ingredients: "Chicken, mint, yogurt marinade",
+                            method: "1. Marinate chicken. 2. Grill.",
+                            benefits: "Cooling, high protein."
+                        }
+                    ],
+                    autumn: [
+                        {
+                            name: "Halwa Puri Chana",
+                            ingredients: "For Halwa: butter, semolina, milk, sugar. For Puri: flour, oil. For Chana: chickpeas, spices",
+                            method: "Prepare each component separately: cook halwa, fry puri, boil chana with spices.",
+                            benefits: "Nutritious for season."
+                        },
+                        {
+                            name: "Nihari",
+                            ingredients: "Beef/mutton, spices, flour for thickening, ginger, chilies",
+                            method: "1. Slow cook meat with spices. 2. Thicken with flour. 3. Garnish with ginger and chilies.",
+                            benefits: "Iron-rich."
+                        },
+                        {
+                            name: "Keema Omelette",
+                            ingredients: "Half a cup ground chicken or beef, onions, spices, 2 eggs (beaten), salt, pepper",
+                            method: "1. Brown ground meat with onions and spices. 2. Mix with beaten eggs. 3. Cook until set.",
+                            benefits: "High protein."
+                        }
+                    ]
+                }
+            },
+            lunch: {
+                low: {
+                    winter: [
+                        {
+                            name: "Aloo Gobi Matar Sabzi",
+                            ingredients: "Potatoes, cauliflower, peas, spices",
+                            method: "1. Sauté veggies with spices until cooked.",
+                            benefits: "Low calorie, rich in vitamins and fiber, warming veggies."
+                        },
+                        {
+                            name: "Khatti Daal",
+                            ingredients: "Lentils, tamarind, curry leaves, spices",
+                            method: "1. Cook lentils. 2. Add tamarind and temper with spices.",
+                            benefits: "Protein, fiber, aids digestion in cold."
+                        },
+                        {
+                            name: "Lobia Masala",
+                            ingredients: "White beans, onion, tomato, spices",
+                            method: "1. Cook beans with onion-tomato base.",
+                            benefits: "High fiber, vegetarian protein."
+                        }
+                    ],
+                    spring: [
+                        {
+                            name: "Bhindi Masala",
+                            ingredients: "Okra, onions, tomatoes, spices",
+                            method: "1. Sauté okra with spices. 2. Add tomatoes and cook until tender.",
+                            benefits: "300 calories, fiber, calcium for spring health."
+                        },
+                        {
+                            name: "Baingan ka Bhurta",
+                            ingredients: "Eggplant, onions, tomatoes, spices",
+                            method: "1. Roast eggplant. 2. Mash and cook with spices.",
+                            benefits: "Antioxidant-rich, low calorie."
+                        },
+                        {
+                            name: "Khatti Daal",
+                            ingredients: "Lentils, tamarind, curry leaves, spices",
+                            method: "1. Cook lentils. 2. Add tamarind and temper with spices.",
+                            benefits: "Protein-rich."
+                        }
+                    ],
+                    summer: [
+                        {
+                            name: "Bhindi Masala",
+                            ingredients: "Okra, onions, tomatoes, spices",
+                            method: "1. Sauté okra with spices. 2. Add tomatoes and cook until tender.",
+                            benefits: "Light, digestive for heat."
+                        },
+                        {
+                            name: "Baingan ka Bhurta",
+                            ingredients: "Eggplant, onions, tomatoes, spices",
+                            method: "1. Roast eggplant. 2. Mash and cook with spices.",
+                            benefits: "Low calorie, cooling."
+                        },
+                        {
+                            name: "Matar Pulao", // Added from research
+                            ingredients: "Rice, peas, spices",
+                            method: "1. Sauté spices, add peas and rice. 2. Cook.",
+                            benefits: "Light carbs, hydrating peas."
+                        }
+                    ],
+                    autumn: [
+                        {
+                            name: "Aloo Gobi Matar Sabzi",
+                            ingredients: "Potatoes, cauliflower, peas, spices",
+                            method: "1. Sauté veggies with spices until cooked.",
+                            benefits: "Vitamins, fiber."
+                        },
+                        {
+                            name: "Lobia Masala",
+                            ingredients: "White beans, onion, tomato, spices",
+                            method: "1. Cook beans with onion-tomato base.",
+                            benefits: "Protein."
+                        },
+                        {
+                            name: "Saag", // Added from research
+                            ingredients: "Mustard greens, spices",
+                            method: "1. Cook greens with spices.",
+                            benefits: "Iron-rich, seasonal greens."
+                        }
+                    ]
+                },
+                medium: {
+                    winter: [
+                        {
+                            name: "Chicken Karahi",
+                            ingredients: "½ kg chicken, ⅓ cup oil, spices, tomatoes, ginger",
+                            method: "1. Fry chicken. 2. Add spices and tomatoes. 3. Cook until tender. 4. Garnish.",
+                            benefits: "342 kcal, 13g protein. Warming."
+                        },
+                        {
+                            name: "Butter Chicken",
+                            ingredients: "Chicken, butter, cream, spices",
+                            method: "1. Marinate and cook chicken. 2. Add creamy sauce.",
+                            benefits: "Protein, calcium."
+                        },
+                        {
+                            name: "Chicken Yakhni Pilau",
+                            ingredients: "Chicken, rice, spices",
+                            method: "1. Cook chicken broth. 2. Add rice.",
+                            benefits: "Balanced."
+                        }
+                    ],
+                    spring: [
+                        {
+                            name: "Boneless Chicken Hara Masala",
+                            ingredients: "Chicken breast, cilantro, mint, green chilies, garlic, ginger",
+                            method: "1. Marinate chicken. 2. Cook with herbs.",
+                            benefits: "314 calories, lean protein."
+                        },
+                        {
+                            name: "Chicken Keema",
+                            ingredients: "Ground chicken, spices",
+                            method: "1. Cook ground chicken with spices.",
+                            benefits: "Low calorie."
+                        },
+                        {
+                            name: "Chicken Karahi",
+                            ingredients: "½ kg chicken, ⅓ cup oil, spices, tomatoes, ginger",
+                            method: "1. Fry chicken. 2. Add spices and tomatoes. 3. Cook until tender. 4. Garnish.",
+                            benefits: "Protein."
+                        }
+                    ],
+                    summer: [
+                        {
+                            name: "Boneless Chicken Hara Masala",
+                            ingredients: "Chicken breast, cilantro, mint, green chilies, garlic, ginger",
+                            method: "1. Marinate chicken. 2. Cook with herbs.",
+                            benefits: "Light, herbal cooling."
+                        },
+                        {
+                            name: "Chicken Keema",
+                            ingredients: "Ground chicken, spices",
+                            method: "1. Cook ground chicken with spices.",
+                            benefits: "Quick, light."
+                        },
+                        {
+                            name: "Chicken Corn Soup", // Added for variety, though more winter, but light version
+                            ingredients: "Chicken broth, corn, eggs",
+                            method: "1. Boil broth with corn. 2. Add beaten eggs.",
+                            benefits: "Hydrating, protein."
+                        }
+                    ],
+                    autumn: [
+                        {
+                            name: "Butter Chicken",
+                            ingredients: "Chicken, butter, cream, spices",
+                            method: "1. Marinate and cook chicken. 2. Add creamy sauce.",
+                            benefits: "Rich protein."
+                        },
+                        {
+                            name: "Chicken Yakhni Pilau",
+                            ingredients: "Chicken, rice, spices",
+                            method: "1. Cook chicken broth. 2. Add rice.",
+                            benefits: "Balanced."
+                        },
+                        {
+                            name: "Chicken Karahi",
+                            ingredients: "½ kg chicken, ⅓ cup oil, spices, tomatoes, ginger",
+                            method: "1. Fry chicken. 2. Add spices and tomatoes. 3. Cook until tender. 4. Garnish.",
+                            benefits: "Flavorful."
+                        }
+                    ]
+                },
+                high: {
+                    winter: [
+                        {
+                            name: "Nihari",
+                            ingredients: "Meat, spices, flour",
+                            method: "1. Slow cook overnight. 2. Thicken.",
+                            benefits: "Protein, iron."
+                        },
+                        {
+                            name: "Haleem",
+                            ingredients: "Beef, barley, lentils, spices",
+                            method: "1. Cook and blend into porridge.",
+                            benefits: "High protein, fiber."
+                        },
+                        {
+                            name: "Aloo Gosht",
+                            ingredients: "Mutton/beef, potatoes, spices",
+                            method: "1. Slow cook meat and potatoes with spices.",
+                            benefits: "Iron-rich."
+                        }
+                    ],
+                    spring: [
+                        {
+                            name: "Mutton Pulao",
+                            ingredients: "Mutton, rice, spices",
+                            method: "1. Cook mutton broth. 2. Add rice.",
+                            benefits: "Nutritious."
+                        },
+                        {
+                            name: "Bombay Beef Biryani",
+                            ingredients: "Beef, rice, spices",
+                            method: "1. Layer cooked beef and rice. 2. Steam.",
+                            benefits: "High protein."
+                        },
+                        {
+                            name: "Aloo Gosht",
+                            ingredients: "Mutton/beef, potatoes, spices",
+                            method: "1. Slow cook meat and potatoes with spices.",
+                            benefits: "Balanced."
+                        }
+                    ],
+                    summer: [
+                        {
+                            name: "Mutton Pulao",
+                            ingredients: "Mutton, rice, spices",
+                            method: "1. Cook mutton broth. 2. Add rice.",
+                            benefits: "Satisfying but can be light."
+                        },
+                        {
+                            name: "Bombay Beef Biryani",
+                            ingredients: "Beef, rice, spices",
+                            method: "1. Layer cooked beef and rice. 2. Steam.",
+                            benefits: "Flavorful."
+                        },
+                        {
+                            name: "Grilled Mutton Chops", // Added light for summer
+                            ingredients: "Mutton chops, marinade spices",
+                            method: "1. Marinate. 2. Grill.",
+                            benefits: "Lean protein."
+                        }
+                    ],
+                    autumn: [
+                        {
+                            name: "Nihari",
+                            ingredients: "Meat, spices, flour",
+                            method: "1. Slow cook overnight. 2. Thicken.",
+                            benefits: "Energy-boosting."
+                        },
+                        {
+                            name: "Haleem",
+                            ingredients: "Beef, barley, lentils, spices",
+                            method: "1. Cook and blend into porridge.",
+                            benefits: "Fiber and protein."
+                        },
+                        {
+                            name: "Mutton Biryani",
+                            ingredients: "Mutton, rice, spices",
+                            method: "1. Layer and steam.",
+                            benefits: "Nutrient-dense."
+                        }
+                    ]
+                }
+            },
+            dinner: {
+                low: {
+                    winter: [
+                        {
+                            name: "Kaali Daal",
+                            ingredients: "Black lentils, spices",
+                            method: "1. Cook lentils. 2. Temper with spices.",
+                            benefits: "High protein, fiber, warming."
+                        },
+                        {
+                            name: "Daal Chawal",
+                            ingredients: "Lentils, rice",
+                            method: "1. Cook daal and rice separately.",
+                            benefits: "Complete protein."
+                        },
+                        {
+                            name: "Rajma",
+                            ingredients: "Kidney beans, spices",
+                            method: "1. Cook beans in curry.",
+                            benefits: "High fiber."
+                        }
+                    ],
+                    spring: [
+                        {
+                            name: "Vegetable Pulao",
+                            ingredients: "Rice, mixed veggies, spices",
+                            method: "1. Sauté veggies. 2. Cook with rice.",
+                            benefits: "Vitamin-rich."
+                        },
+                        {
+                            name: "Karela Sabzi",
+                            ingredients: "Bitter melon, spices",
+                            method: "1. Cook bitter melon with spices.",
+                            benefits: "Antioxidants."
+                        },
+                        {
+                            name: "Daal Chawal",
+                            ingredients: "Lentils, rice",
+                            method: "1. Cook daal and rice separately.",
+                            benefits: "Easy digest."
+                        }
+                    ],
+                    summer: [
+                        {
+                            name: "Vegetable Pulao",
+                            ingredients: "Rice, mixed veggies, spices",
+                            method: "1. Sauté veggies. 2. Cook with rice.",
+                            benefits: "Low fat, hydrating."
+                        },
+                        {
+                            name: "Karela Sabzi",
+                            ingredients: "Bitter melon, spices",
+                            method: "1. Cook bitter melon with spices.",
+                            benefits: "Cooling, blood sugar control."
+                        },
+                        {
+                            name: "Khatti Daal", // Light
+                            ingredients: "Lentils, tamarind, spices",
+                            method: "1. Cook with tamarind.",
+                            benefits: "Digestive."
+                        }
+                    ],
+                    autumn: [
+                        {
+                            name: "Kaali Daal",
+                            ingredients: "Black lentils, spices",
+                            method: "1. Cook lentils. 2. Temper with spices.",
+                            benefits: "Protein."
+                        },
+                        {
+                            name: "Rajma",
+                            ingredients: "Kidney beans, spices",
+                            method: "1. Cook beans in curry.",
+                            benefits: "Wholesome."
+                        },
+                        {
+                            name: "Saag Daal", // Added
+                            ingredients: "Lentils, greens, spices",
+                            method: "1. Cook together.",
+                            benefits: "Iron and protein."
+                        }
+                    ]
+                },
+                medium: {
+                    winter: [
+                        {
+                            name: "Chicken Qorma",
+                            ingredients: "Chicken, yogurt, spices",
+                            method: "1. Cook in yogurt sauce.",
+                            benefits: "Creamy, protein."
+                        },
+                        {
+                            name: "Baked Chicken Drumsticks",
+                            ingredients: "Chicken drumsticks, yogurt, spices",
+                            method: "1. Marinate. 2. Bake.",
+                            benefits: "No oil, healthy."
+                        },
+                        {
+                            name: "Chicken Kofta",
+                            ingredients: "Ground chicken, spices",
+                            method: "1. Form meatballs. 2. Cook in gravy.",
+                            benefits: "Protein-rich."
+                        }
+                    ],
+                    spring: [
+                        {
+                            name: "Ground Beef Kebabs",
+                            ingredients: "Ground beef, spices",
+                            method: "1. Form and cook kebabs.",
+                            benefits: "Low-calorie."
+                        },
+                        {
+                            name: "Chicken Malai Handi",
+                            ingredients: "Chicken, cream, spices",
+                            method: "1. Cook in creamy sauce.",
+                            benefits: "Calcium, protein."
+                        },
+                        {
+                            name: "Chicken Qorma",
+                            ingredients: "Chicken, yogurt, spices",
+                            method: "1. Cook in yogurt sauce.",
+                            benefits: "Digestive."
+                        }
+                    ],
+                    summer: [
+                        {
+                            name: "Baked Chicken Drumsticks",
+                            ingredients: "Chicken drumsticks, yogurt, spices",
+                            method: "1. Marinate. 2. Bake.",
+                            benefits: "Light, no fry."
+                        },
+                        {
+                            name: "Chicken Malai Handi",
+                            ingredients: "Chicken, cream, spices",
+                            method: "1. Cook in creamy sauce.",
+                            benefits: "Cool cream base."
+                        },
+                        {
+                            name: "Chicken Hara Masala", // Light
+                            ingredients: "Chicken, herbs",
+                            method: "1. Cook with green masala.",
+                            benefits: "Refreshing."
+                        }
+                    ],
+                    autumn: [
+                        {
+                            name: "Chicken Kofta",
+                            ingredients: "Ground chicken, spices",
+                            method: "1. Form meatballs. 2. Cook in gravy.",
+                            benefits: "Satisfying."
+                        },
+                        {
+                            name: "Ground Beef Kebabs",
+                            ingredients: "Ground beef, spices",
+                            method: "1. Form and cook kebabs.",
+                            benefits: "Protein."
+                        },
+                        {
+                            name: "Chicken Qorma",
+                            ingredients: "Chicken, yogurt, spices",
+                            method: "1. Cook in yogurt sauce.",
+                            benefits: "Rich."
+                        }
+                    ]
+                },
+                high: {
+                    winter: [
+                        {
+                            name: "Murgh Musallum",
+                            ingredients: "Whole chicken, spices, stuffing",
+                            method: "1. Stuff and roast chicken.",
+                            benefits: "High protein."
+                        },
+                        {
+                            name: "Chapli Kabab",
+                            ingredients: "Ground meat, spices",
+                            method: "1. Form patties. 2. Fry.",
+                            benefits: "Juicy, protein."
+                        },
+                        {
+                            name: "Seekh Kebab",
+                            ingredients: "Ground beef, spices",
+                            method: "1. Skewer and grill.",
+                            benefits: "Tender."
+                        }
+                    ],
+                    spring: [
+                        {
+                            name: "Mutton Biryani",
+                            ingredients: "Mutton, rice, spices",
+                            method: "1. Layer and steam.",
+                            benefits: "Energy-boosting."
+                        },
+                        {
+                            name: "Shami Kebab",
+                            ingredients: "Beef, chana dal, spices",
+                            method: "1. Cook and form patties.",
+                            benefits: "Fiber, protein."
+                        },
+                        {
+                            name: "Seekh Kebab",
+                            ingredients: "Ground beef, spices",
+                            method: "1. Skewer and grill.",
+                            benefits: "Grilled health."
+                        }
+                    ],
+                    summer: [
+                        {
+                            name: "Mutton Biryani",
+                            ingredients: "Mutton, rice, spices",
+                            method: "1. Layer and steam.",
+                            benefits: "Flavorful."
+                        },
+                        {
+                            name: "Chapli Kabab",
+                            ingredients: "Ground meat, spices",
+                            method: "1. Form patties. 2. Fry.",
+                            benefits: "Satisfying."
+                        },
+                        {
+                            name: "Grilled Seekh Kebab", // Light grill
+                            ingredients: "Ground meat, spices",
+                            method: "1. Grill instead of fry.",
+                            benefits: "Leaner."
+                        }
+                    ],
+                    autumn: [
+                        {
+                            name: "Murgh Musallum",
+                            ingredients: "Whole chicken, spices, stuffing",
+                            method: "1. Stuff and roast chicken.",
+                            benefits: "Gourmet."
+                        },
+                        {
+                            name: "Shami Kebab",
+                            ingredients: "Beef, chana dal, spices",
+                            method: "1. Cook and form patties.",
+                            benefits: "Wholesome."
+                        },
+                        {
+                            name: "Chapli Kabab",
+                            ingredients: "Ground meat, spices",
+                            method: "1. Form patties. 2. Fry.",
+                            benefits: "Protein."
+                        }
+                    ]
+                }
+            }
+        };
+
+        // Season mapping based on Pakistan seasons (can extend for other countries)
+        const seasonMap = {
+            0: 'winter',  // Jan
+            1: 'winter',  // Feb
+            2: 'spring',  // Mar
+            3: 'spring',  // Apr
+            4: 'summer',  // May
+            5: 'summer',  // Jun
+            6: 'summer',  // Jul
+            7: 'summer',  // Aug
+            8: 'autumn',  // Sep
+            9: 'autumn',  // Oct
+            10: 'autumn', // Nov
+            11: 'winter'  // Dec
+        };
+
+        // Calendar generation
+        const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+        const monthSelect = document.getElementById('month-select');
+        const yearSelect = document.getElementById('year-select');
+        const calendarDiv = document.getElementById('calendar');
+        const menuDisplay = document.getElementById('menu-display');
+        const budgetSelect = document.getElementById('budget-select');
+        const searchInput = document.getElementById('search-input');
+        const printBtn = document.getElementById('print-btn');
+
+        // Populate months and years
+        months.forEach((month, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = month;
+            monthSelect.appendChild(option);
+        });
+
+        const currentYear = new Date().getFullYear();
+        for (let y = currentYear - 5; y <= currentYear + 5; y++) {
+            const option = document.createElement('option');
+            option.value = y;
+            option.textContent = y;
+            yearSelect.appendChild(option);
+        }
+        monthSelect.value = new Date().getMonth();
+        yearSelect.value = currentYear;
+
+        // Generate calendar
+        function generateCalendar() {
+            calendarDiv.innerHTML = '';
+            weekdays.forEach(day => {
+                const div = document.createElement('div');
+                div.classList.add('weekday');
+                div.textContent = day;
+                calendarDiv.appendChild(div);
+            });
+
+            const year = parseInt(yearSelect.value);
+            const month = parseInt(monthSelect.value);
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            for (let i = 0; i < firstDay; i++) {
+                const empty = document.createElement('div');
+                calendarDiv.appendChild(empty);
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const div = document.createElement('div');
+                div.classList.add('day');
+                div.textContent = day;
+                div.addEventListener('click', () => showMenu(day));
+                calendarDiv.appendChild(div);
+            }
+            updateHighlights(); // Initial highlight if search present
+        }
+
+        // Function to get recipe for a meal, budget, season, day
+        function getRecipe(meal, budget, season, day) {
+            const recipeList = recipes[meal][budget][season] || [];
+            return recipeList[day % recipeList.length] || {name: "No recipe available", ingredients: "", method: "", benefits: ""};
+        }
+
+        // Show menu for selected day
+        function showMenu(day) {
+            const budget = budgetSelect.value;
+            const month = parseInt(monthSelect.value);
+            const season = seasonMap[month];
+            const searchTerm = searchInput.value.toLowerCase();
+
+            const breakfastRecipe = getRecipe('breakfast', budget, season, day);
+            const lunchRecipe = getRecipe('lunch', budget, season, day);
+            const dinnerRecipe = getRecipe('dinner', budget, season, day);
+
+            let displayContent = `<h2>Menu for Day ${day} (${season.charAt(0).toUpperCase() + season.slice(1)} Season)</h2>`;
+            if (!searchTerm || breakfastRecipe.name.toLowerCase().includes(searchTerm)) {
+                displayContent += createMealHTML('Breakfast', breakfastRecipe);
+            }
+            if (!searchTerm || lunchRecipe.name.toLowerCase().includes(searchTerm)) {
+                displayContent += createMealHTML('Lunch', lunchRecipe);
+            }
+            if (!searchTerm || dinnerRecipe.name.toLowerCase().includes(searchTerm)) {
+                displayContent += createMealHTML('Dinner', dinnerRecipe);
+            }
+
+            menuDisplay.innerHTML = displayContent;
+
+            // Toggle details
+            document.querySelectorAll('.toggle-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const details = btn.nextElementSibling;
+                    details.style.display = details.style.display === 'block' ? 'none' : 'block';
+                });
+            });
+
+            // Highlight selected day
+            document.querySelectorAll('.day').forEach(d => d.classList.remove('selected'));
+            const selectedDay = Array.from(calendarDiv.querySelectorAll('.day')).find(d => parseInt(d.textContent) === day);
+            if (selectedDay) selectedDay.classList.add('selected');
+        }
+
+        function createMealHTML(mealType, recipe) {
+            return `
+                <div class="meal">
+                    <h3>${mealType}: ${recipe.name}</h3>
+                    <!-- Placeholder image, replace with real URLs -->
+                    <img class="food-img" src="https://via.placeholder.com/800x200?text=${encodeURIComponent(recipe.name)}" alt="${recipe.name}">
+                    <span class="toggle-btn">View Details</span>
+                    <div class="recipe-details">
+                        <p><strong>Ingredients:</strong> ${recipe.ingredients}</p>
+                        <p><strong>Method:</strong> ${recipe.method}</p>
+                        <p><strong>Benefits:</strong> ${recipe.benefits}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Update highlights for search across the month
+        function updateHighlights() {
+            const searchTerm = searchInput.value.toLowerCase();
+            if (!searchTerm) {
+                document.querySelectorAll('.day').forEach(d => d.classList.remove('highlighted'));
+                return;
+            }
+
+            const budget = budgetSelect.value;
+            const month = parseInt(monthSelect.value);
+            const season = seasonMap[month];
+            const daysInMonth = new Date(parseInt(yearSelect.value), month + 1, 0).getDate();
+
+            document.querySelectorAll('.day').forEach((d, index) => {
+                const day = parseInt(d.textContent);
+                if (isNaN(day)) return;
+
+                const breakfast = getRecipe('breakfast', budget, season, day).name.toLowerCase();
+                const lunch = getRecipe('lunch', budget, season, day).name.toLowerCase();
+                const dinner = getRecipe('dinner', budget, season, day).name.toLowerCase();
+
+                if (breakfast.includes(searchTerm) || lunch.includes(searchTerm) || dinner.includes(searchTerm)) {
+                    d.classList.add('highlighted');
+                } else {
+                    d.classList.remove('highlighted');
+                }
+            });
+        }
+
+        // Event listeners
+        monthSelect.addEventListener('change', generateCalendar);
+        yearSelect.addEventListener('change', generateCalendar);
+        budgetSelect.addEventListener('change', () => {
+            generateCalendar(); // Refresh highlights
+            if (menuDisplay.innerHTML) {
+                const day = parseInt(menuDisplay.querySelector('h2').textContent.match(/\d+/)[0]);
+                showMenu(day);
+            }
+        });
+        searchInput.addEventListener('input', () => {
+            updateHighlights();
+            if (menuDisplay.innerHTML) {
+                const day = parseInt(menuDisplay.querySelector('h2').textContent.match(/\d+/)[0]);
+                showMenu(day);
+            }
+        });
+        printBtn.addEventListener('click', () => window.print());
+
+        generateCalendar();
+    </script>
+</body>
+</html>
